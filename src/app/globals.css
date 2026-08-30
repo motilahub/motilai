@@ -435,6 +435,13 @@ body {
 .provider-models { margin: 0.7rem 0 0; color: var(--muted-foreground); font-size: 0.68rem; line-height: 1.5; }
 .provider-url { margin: -0.4rem 0 1rem; color: var(--muted-foreground); font-size: 0.68rem; word-break: break-all; }
 .provider-divider { height: 1px; margin: 0.85rem 0 0.65rem; background: var(--border); }
+.provider-parameter-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.9rem; }
+.provider-parameter-tags .ant-tag { margin: 0; color: var(--muted-foreground); }
+.provider-section-heading { margin-bottom: 1rem; }
+.provider-section-heading h3 { margin: 0; color: var(--foreground); font-size: 0.95rem; }
+.provider-section-heading p { margin: 0.3rem 0 0; color: var(--muted-foreground); font-size: 0.72rem; line-height: 1.5; }
+.provider-settings-drawer .ant-divider { margin: 0.4rem 0 1.25rem; }
+.provider-settings-drawer .ant-form-item { margin-bottom: 1rem; }
 .drawer-backdrop { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.3); }
 .drawer-panel { position: absolute; inset: 0 0 0 auto; width: clamp(28rem, 42vw, 42rem); overflow-y: auto; border-left: 1px solid var(--border); background: var(--card); padding: 1.25rem; box-shadow: -12px 0 40px rgb(0 0 0 / 0.16); animation: drawer-in 160ms ease-out; }
 .drawer-panel .admin-form-heading { position: sticky; top: -1.25rem; z-index: 1; margin: -1.25rem -1.25rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--card); padding: 1rem 1.25rem; }

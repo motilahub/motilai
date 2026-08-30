@@ -3,10 +3,12 @@ import { frontendTools } from "@assistant-ui/ai-sdk";
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
+  generateText,
   streamText,
   convertToModelMessages,
   type UIMessage,
   type JSONSchema7,
+  type ModelMessage,
 } from "ai";
 import { getCurrentUser } from "@/lib/auth";
 import { getActiveProvider } from "@/lib/model-providers";
@@ -44,17 +46,39 @@ export async function POST(req: Request) {
     ...((configuredProvider?.baseUrl || process.env.OPENAI_BASE_URL)
       ? { baseURL: configuredProvider?.baseUrl || process.env.OPENAI_BASE_URL }
       : {}),
+    ...(configuredProvider?.settings.topK != null ? { fetch: createTopKFetch(configuredProvider.settings.topK) } : {}),
   });
 
   const resourceContext = await buildResourceContext(messages);
-  const result = streamText({
+  const settings = configuredProvider?.settings;
+  const modelMessages = await convertToModelMessages(messages);
+  const callOptions = {
     model: provider.chat(configuredProvider?.model || process.env.OPENAI_MODEL || "gpt-4.1-mini"),
-    messages: await convertToModelMessages(messages),
-    tools: {
-      ...frontendTools(tools ?? {}),
-    },
+    messages: settings?.supportsVision === false ? removeImageParts(modelMessages) : modelMessages,
+    ...(settings?.supportsTools === false ? {} : { tools: { ...frontendTools(tools ?? {}) } }),
     system: [system ?? defaultSystem, resourceContext].filter(Boolean).join("\n\n"),
-  });
+    ...(settings?.temperature != null ? { temperature: settings.temperature } : {}),
+    ...(settings?.topP != null ? { topP: settings.topP } : {}),
+    ...(settings?.maxOutputTokens != null ? { maxOutputTokens: settings.maxOutputTokens } : {}),
+    ...(settings?.frequencyPenalty != null ? { frequencyPenalty: settings.frequencyPenalty } : {}),
+    ...(settings?.presencePenalty != null ? { presencePenalty: settings.presencePenalty } : {}),
+    ...(settings?.stopSequences.length ? { stopSequences: settings.stopSequences } : {}),
+    ...(settings?.seed != null ? { seed: settings.seed } : {}),
+    maxRetries: settings?.maxRetries ?? 2,
+    timeout: settings?.requestTimeoutMs ?? 60000,
+  };
+
+  if (settings?.streaming === false) {
+    try {
+      const result = await generateText(callOptions);
+      return createTextResponse(result.text);
+    } catch (error) {
+      console.error("Chat model error", error);
+      return new Response("模型服务暂时不可用，请检查服务配置后重试。", { status: 502 });
+    }
+  }
+
+  const result = streamText(callOptions);
 
   return result.toUIMessageStreamResponse({
     onError: (error) => {
@@ -62,6 +86,44 @@ export async function POST(req: Request) {
       return "模型服务暂时不可用，请检查服务配置后重试。";
     },
   });
+}
+
+function removeImageParts(messages: ModelMessage[]): ModelMessage[] {
+  return messages.map((message) => {
+    if (message.role !== "user" || typeof message.content === "string") return message;
+    const content = message.content.filter((part) => part.type !== "image" && !(part.type === "file" && part.mediaType.startsWith("image")));
+    return { ...message, content: content.length > 0 ? content : [{ type: "text", text: "[已忽略图片附件：当前模型未启用视觉能力]" }] };
+  });
+}
+
+function createTopKFetch(topK: number): typeof fetch {
+  return async (input, init) => {
+    if (typeof init?.body === "string") {
+      try {
+        const body = JSON.parse(init.body) as Record<string, unknown>;
+        return fetch(input, { ...init, body: JSON.stringify({ ...body, top_k: topK }) });
+      } catch {
+        // Keep the original request when a provider uses a non-standard JSON body.
+      }
+    }
+    return fetch(input, init);
+  };
+}
+
+function createTextResponse(text: string) {
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      const textId = crypto.randomUUID();
+      writer.write({ type: "start" });
+      writer.write({ type: "start-step" });
+      writer.write({ type: "text-start", id: textId });
+      writer.write({ type: "text-delta", id: textId, delta: text });
+      writer.write({ type: "text-end", id: textId });
+      writer.write({ type: "finish-step" });
+      writer.write({ type: "finish", finishReason: "stop" });
+    },
+  });
+  return createUIMessageStreamResponse({ stream });
 }
 
 async function buildResourceContext(messages: UIMessage[]) {

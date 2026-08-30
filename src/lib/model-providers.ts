@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { databaseQuery } from "@/lib/auth";
 import { getProviderType, type ModelProviderType } from "@/lib/model-provider-types";
+import { normalizeModelProviderSettings, type ModelProviderSettings } from "@/lib/model-provider-settings";
 
 export type ModelProvider = {
   id: string;
@@ -11,6 +12,7 @@ export type ModelProvider = {
   model: string;
   enabled: boolean;
   models: string[];
+  settings: ModelProviderSettings;
   createdAt: string;
   updatedAt: string;
 };
@@ -26,6 +28,7 @@ function rowToProvider(row: Record<string, unknown>): ModelProvider {
     model: String(row.model),
     enabled: Boolean(row.enabled),
     models,
+    settings: normalizeModelProviderSettings(row.settings),
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.created_at)).toISOString(),
   };
@@ -40,6 +43,7 @@ export function publicProvider(provider: ModelProvider) {
     model: provider.model,
     enabled: provider.enabled,
     models: provider.models,
+    settings: provider.settings,
     hasApiKey: Boolean(provider.apiKey),
     createdAt: provider.createdAt,
     updatedAt: provider.updatedAt,
@@ -65,24 +69,28 @@ function normalizeBaseUrl(value: string) {
   return value.trim().replace(/\/+$/, "");
 }
 
-export async function createProvider(input: { name: string; providerType?: ModelProviderType; baseUrl: string; apiKey: string; model: string; enabled?: boolean; models?: string[] }) {
+export type ModelProviderInput = { name?: string; providerType?: ModelProviderType; baseUrl?: string; apiKey?: string; model?: string; enabled?: boolean; models?: string[]; settings?: Partial<ModelProviderSettings> };
+
+export async function createProvider(input: ModelProviderInput & { name: string; baseUrl: string; apiKey: string; model: string }) {
   const name = input.name.trim();
   const baseUrl = normalizeBaseUrl(input.baseUrl);
   const model = input.model.trim();
   if (!name || !baseUrl || !model) throw new Error("名称、Base URL 和模型不能为空");
   try { new URL(baseUrl); } catch { throw new Error("Base URL 格式无效"); }
   if (input.enabled) await databaseQuery("UPDATE model_providers SET enabled = FALSE, updated_at = NOW()");
-  const result = await databaseQuery("INSERT INTO model_providers (id, name, provider_type, base_url, api_key, model, enabled, models) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *", [randomUUID(), name, getProviderType(input.providerType), baseUrl, input.apiKey.trim(), model, input.enabled ?? false, JSON.stringify(input.models ?? [])]);
+  const settings = normalizeModelProviderSettings(input.settings);
+  const result = await databaseQuery("INSERT INTO model_providers (id, name, provider_type, base_url, api_key, model, enabled, models, settings) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *", [randomUUID(), name, getProviderType(input.providerType), baseUrl, input.apiKey.trim(), model, input.enabled ?? false, JSON.stringify(input.models ?? []), JSON.stringify(settings)]);
   return rowToProvider(result.rows[0]);
 }
 
-export async function updateProvider(id: string, input: { name?: string; providerType?: ModelProviderType; baseUrl?: string; apiKey?: string; model?: string; enabled?: boolean; models?: string[] }) {
+export async function updateProvider(id: string, input: ModelProviderInput) {
   const current = await getProvider(id);
   if (!current) return null;
   const baseUrl = input.baseUrl === undefined ? current.baseUrl : normalizeBaseUrl(input.baseUrl);
   try { new URL(baseUrl); } catch { throw new Error("Base URL 格式无效"); }
   if (input.enabled) await databaseQuery("UPDATE model_providers SET enabled = FALSE, updated_at = NOW() WHERE id <> $1", [id]);
-  const result = await databaseQuery("UPDATE model_providers SET name = $2, provider_type = $3, base_url = $4, api_key = $5, model = $6, enabled = $7, models = $8, updated_at = NOW() WHERE id = $1 RETURNING *", [id, input.name?.trim() || current.name, getProviderType(input.providerType ?? current.providerType), baseUrl, input.apiKey === undefined ? current.apiKey : input.apiKey.trim(), input.model?.trim() || current.model, input.enabled ?? current.enabled, JSON.stringify(input.models ?? current.models)]);
+  const settings = input.settings === undefined ? current.settings : normalizeModelProviderSettings({ ...current.settings, ...input.settings });
+  const result = await databaseQuery("UPDATE model_providers SET name = $2, provider_type = $3, base_url = $4, api_key = $5, model = $6, enabled = $7, models = $8, settings = $9, updated_at = NOW() WHERE id = $1 RETURNING *", [id, input.name?.trim() || current.name, getProviderType(input.providerType ?? current.providerType), baseUrl, input.apiKey === undefined ? current.apiKey : input.apiKey.trim(), input.model?.trim() || current.model, input.enabled ?? current.enabled, JSON.stringify(input.models ?? current.models), JSON.stringify(settings)]);
   return result.rows[0] ? rowToProvider(result.rows[0]) : null;
 }
 
