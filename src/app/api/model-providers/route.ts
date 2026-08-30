@@ -1,5 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { createProvider, deleteProvider, listProviders, publicProvider, updateProvider } from "@/lib/model-providers";
+import type { ModelProviderType } from "@/lib/model-provider-types";
 import { NextResponse } from "next/server";
 
 async function requireAdmin() {
@@ -16,16 +17,16 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "无权操作" }, { status: 403 });
   try {
-    const body = (await request.json()) as { name?: string; baseUrl?: string; apiKey?: string; model?: string; enabled?: boolean; models?: string[] };
+    const body = (await request.json()) as { name?: string; providerType?: ModelProviderType; baseUrl?: string; apiKey?: string; model?: string; enabled?: boolean; models?: string[] };
     if (!body.name || !body.baseUrl || !body.model) return NextResponse.json({ error: "名称、Base URL 和模型不能为空" }, { status: 400 });
-    return NextResponse.json({ provider: publicProvider(await createProvider({ name: body.name, baseUrl: body.baseUrl, apiKey: body.apiKey ?? "", model: body.model, enabled: body.enabled, models: body.models })) }, { status: 201 });
+    return NextResponse.json({ provider: publicProvider(await createProvider({ name: body.name, providerType: body.providerType, baseUrl: body.baseUrl, apiKey: body.apiKey ?? "", model: body.model, enabled: body.enabled, models: body.models })) }, { status: 201 });
   } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "创建供应商失败" }, { status: 400 }); }
 }
 
 export async function PATCH(request: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "无权操作" }, { status: 403 });
   try {
-    const body = (await request.json()) as { id?: string; name?: string; baseUrl?: string; apiKey?: string; model?: string; enabled?: boolean; models?: string[] };
+    const body = (await request.json()) as { id?: string; name?: string; providerType?: ModelProviderType; baseUrl?: string; apiKey?: string; model?: string; enabled?: boolean; models?: string[] };
     if (!body.id) return NextResponse.json({ error: "缺少供应商 ID" }, { status: 400 });
     const provider = await updateProvider(body.id, body);
     if (!provider) return NextResponse.json({ error: "供应商不存在" }, { status: 404 });

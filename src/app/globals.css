@@ -460,6 +460,7 @@ body {
 .admin-batch-actions { display: flex; align-items: center; gap: 0.7rem; }
 .admin-selection-count { color: var(--muted-foreground); font-size: 0.76rem; }
 .provider-model-select { width: 100%; max-width: 13rem; height: 2rem; border: 1px solid var(--border); border-radius: 0.3rem; background: var(--background); padding: 0 0.4rem; color: var(--foreground); font-size: 0.72rem; }
+.provider-card .ant-tag { margin-inline-end: 0; font-size: 0.65rem; }
 .clickable-row { cursor: pointer; }
 .clickable-row:hover { background: color-mix(in oklab, var(--accent) 35%, transparent); }
 .settings-panel { max-width: 58rem; border: 1px solid var(--border); border-radius: 0.5rem; background: var(--card); padding: 1.25rem; }
