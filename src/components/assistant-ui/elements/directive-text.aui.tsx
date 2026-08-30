@@ -9,6 +9,20 @@ import {
   type CreateDirectiveTextOptions,
 } from "./directive-text";
 
+const compatibleDirectiveFormatter: Unstable_DirectiveFormatter = {
+  serialize: unstable_defaultDirectiveFormatter.serialize,
+  parse(text) {
+    // Some persisted messages were produced without the formatter's leading
+    // colon, or with the composer trigger left in place. Normalize those forms
+    // before delegating to assistant-ui's parser so they render as chips.
+    const normalized = text.replace(
+      /(^|[^\w:-])@?(agent|knowledge|tool)\[/gu,
+      "$1:$2[",
+    );
+    return unstable_defaultDirectiveFormatter.parse(normalized);
+  },
+};
+
 export type {
   CreateDirectiveTextOptions,
   DirectiveTextFormatter,
@@ -25,5 +39,5 @@ export function createDirectiveText(
 
 /** `Text` message part component that renders directive syntax as inline chips. */
 export const DirectiveText: TextMessagePartComponent = memo(
-  createDirectiveTextBase(unstable_defaultDirectiveFormatter),
+  createDirectiveTextBase(compatibleDirectiveFormatter),
 );
