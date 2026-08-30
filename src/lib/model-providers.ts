@@ -37,7 +37,6 @@ export function publicProvider(provider: ModelProvider) {
     enabled: provider.enabled,
     models: provider.models,
     hasApiKey: Boolean(provider.apiKey),
-    apiKeyMasked: provider.apiKey ? `${provider.apiKey.slice(0, 4)}${"*".repeat(Math.max(4, provider.apiKey.length - 8))}${provider.apiKey.slice(-4)}` : "",
     createdAt: provider.createdAt,
     updatedAt: provider.updatedAt,
   };
@@ -62,14 +61,14 @@ function normalizeBaseUrl(value: string) {
   return value.trim().replace(/\/+$/, "");
 }
 
-export async function createProvider(input: { name: string; baseUrl: string; apiKey: string; model: string; enabled?: boolean }) {
+export async function createProvider(input: { name: string; baseUrl: string; apiKey: string; model: string; enabled?: boolean; models?: string[] }) {
   const name = input.name.trim();
   const baseUrl = normalizeBaseUrl(input.baseUrl);
   const model = input.model.trim();
   if (!name || !baseUrl || !model) throw new Error("名称、Base URL 和模型不能为空");
   try { new URL(baseUrl); } catch { throw new Error("Base URL 格式无效"); }
   if (input.enabled) await databaseQuery("UPDATE model_providers SET enabled = FALSE, updated_at = NOW()");
-  const result = await databaseQuery("INSERT INTO model_providers (id, name, base_url, api_key, model, enabled) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *", [randomUUID(), name, baseUrl, input.apiKey.trim(), model, input.enabled ?? false]);
+  const result = await databaseQuery("INSERT INTO model_providers (id, name, base_url, api_key, model, enabled, models) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *", [randomUUID(), name, baseUrl, input.apiKey.trim(), model, input.enabled ?? false, JSON.stringify(input.models ?? [])]);
   return rowToProvider(result.rows[0]);
 }
 
@@ -88,13 +87,19 @@ export async function deleteProvider(id: string) {
   return result.rowCount === 1;
 }
 
-export async function fetchProviderModels(provider: ModelProvider) {
-  const endpoint = provider.baseUrl.endsWith("/models") ? provider.baseUrl : `${provider.baseUrl}/models`;
-  const response = await fetch(endpoint, { headers: provider.apiKey ? { Authorization: `Bearer ${provider.apiKey}` } : {}, signal: AbortSignal.timeout(15000) });
+export async function fetchModelList(input: { baseUrl: string; apiKey?: string }) {
+  const baseUrl = normalizeBaseUrl(input.baseUrl);
+  try { new URL(baseUrl); } catch { throw new Error("Base URL 格式无效"); }
+  const endpoint = baseUrl.endsWith("/models") ? baseUrl : `${baseUrl}/models`;
+  const response = await fetch(endpoint, { headers: input.apiKey ? { Authorization: `Bearer ${input.apiKey}` } : {}, signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`模型列表请求失败（${response.status}）`);
   const payload = (await response.json()) as { data?: Array<{ id?: string }>; models?: Array<{ id?: string } | string> } | Array<{ id?: string } | string>;
   const items = Array.isArray(payload) ? payload : payload.data ?? payload.models ?? [];
-  const models = items.map((item) => typeof item === "string" ? item : item.id).filter((id): id is string => Boolean(id)).sort();
+  return [...new Set(items.map((item) => typeof item === "string" ? item : item.id).filter((id): id is string => Boolean(id)))].sort();
+}
+
+export async function fetchProviderModels(provider: ModelProvider) {
+  const models = await fetchModelList(provider);
   await databaseQuery("UPDATE model_providers SET models = $2, updated_at = NOW() WHERE id = $1", [provider.id, JSON.stringify(models)]);
   return models;
 }
