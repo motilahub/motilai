@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-motilai}
+      POSTGRES_USER: ${POSTGRES_USER:-motilai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - motilai-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ${MOTILAI_ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-motilai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-motilai}
+      MOTILAI_LEGACY_USERS_FILE: /legacy-data/users.json
+    ports:
+      - "127.0.0.1:3100:3000"
+    volumes:
+      - ./.data:/legacy-data:ro
+
+volumes:
+  motilai-postgres:

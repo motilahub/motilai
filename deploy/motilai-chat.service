@@ -1,0 +1,19 @@
+[Unit]
+Description=MOTILAI AI Chat (Docker Compose)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/softwares/motilai/chat-ui
+Environment=MOTILAI_ENV_FILE=/etc/motilai-chat.env
+ExecStart=/usr/bin/docker compose --env-file /etc/motilai-chat.env up --build
+ExecStop=/usr/bin/docker compose --env-file /etc/motilai-chat.env down
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target
