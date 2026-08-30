@@ -13,6 +13,7 @@ import { ComposerTriggerPopover } from "@/components/assistant-ui/elements/compo
 import {
   DirectiveComposerInput,
   DirectiveText,
+  compatibleDirectiveFormatter,
 } from "@/components/assistant-ui/elements/directive-text.aui";
 import {
   Reasoning,
@@ -48,6 +49,7 @@ import {
   type TextMessagePartComponent,
   type ToolCallMessagePartComponent,
   useAuiState,
+  unstable_useComposerInput,
   unstable_useMentionAdapter,
 } from "@assistant-ui/react";
 import {
@@ -102,6 +104,12 @@ export type ThreadComponents = {
 export type ThreadProps = {
   components?: ThreadComponents | undefined;
   autoFocus?: boolean | undefined;
+  providers?: Array<{ id: string; name: string; model: string; models: string[] }>;
+  selectedProviderId?: string;
+  selectedModel?: string;
+  selectedAgent?: { id: string; label: string } | null;
+  onModelChange?: (providerId: string, model: string) => void;
+  onAgentChange?: (agent: { id: string; label: string } | null) => void;
 };
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
@@ -146,19 +154,49 @@ const ThreadHistorySkeleton: FC = () => (
 export const Thread: FC<ThreadProps> = ({
   components = EMPTY_COMPONENTS,
   autoFocus = true,
+  providers = [],
+  selectedProviderId = "",
+  selectedModel = "",
+  selectedAgent = null,
+  onModelChange = () => undefined,
+  onAgentChange = () => undefined,
 }) => {
   const isEmpty = useAuiState(isNewChatView);
 
   return (
     <ThreadComponentsContext.Provider value={components}>
-      <ThreadRoot isEmpty={isEmpty} autoFocus={autoFocus} />
+      <ThreadRoot
+        isEmpty={isEmpty}
+        autoFocus={autoFocus}
+        providers={providers}
+        selectedProviderId={selectedProviderId}
+        selectedModel={selectedModel}
+        selectedAgent={selectedAgent}
+        onModelChange={onModelChange}
+        onAgentChange={onAgentChange}
+      />
     </ThreadComponentsContext.Provider>
   );
 };
 
-const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
+const ThreadRoot: FC<{
+  isEmpty: boolean;
+  autoFocus: boolean;
+  providers: ThreadProps["providers"];
+  selectedProviderId: string;
+  selectedModel: string;
+  selectedAgent: ThreadProps["selectedAgent"];
+  onModelChange: NonNullable<ThreadProps["onModelChange"]>;
+  onAgentChange: NonNullable<ThreadProps["onAgentChange"]>;
+}> = ({
   isEmpty,
   autoFocus,
+  providers = [],
+  selectedProviderId,
+  selectedModel,
+  selectedAgent,
+  onModelChange,
+  onAgentChange,
 }) => {
   const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 
@@ -208,7 +246,14 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
           >
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
-            <Composer autoFocus={autoFocus} />
+            <Composer autoFocus={autoFocus} onAgentChange={onAgentChange} />
+            <ComposerContextBar
+              providers={providers}
+              selectedProviderId={selectedProviderId}
+              selectedModel={selectedModel}
+              selectedAgent={selectedAgent}
+              onModelChange={onModelChange}
+            />
             <AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
               <ThreadSuggestions />
             </AuiIf>
@@ -264,8 +309,18 @@ const ThreadSuggestionItem: FC = () => {
   );
 };
 
-const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
+const Composer: FC<{
+  autoFocus: boolean;
+  onAgentChange: (agent: { id: string; label: string } | null) => void;
+}> = ({ autoFocus, onAgentChange }) => {
   const [resources, setResources] = useState<Array<{ id: string; kind: "agent" | "knowledge" | "tool"; name: string; description: string }>>([]);
+  const { value: composerValue } = unstable_useComposerInput();
+  useEffect(() => {
+    const mentions = compatibleDirectiveFormatter.parse(composerValue)
+      .filter((segment): segment is Extract<typeof segment, { kind: "mention" }> => segment.kind === "mention" && segment.type === "agent");
+    const last = mentions.at(-1);
+    onAgentChange(last ? { id: last.id, label: last.label } : null);
+  }, [composerValue, onAgentChange]);
   useEffect(() => {
     let active = true;
     void fetch("/api/assistant-resources").then(async (response) => response.ok ? await response.json() as { resources?: Array<{ id: string; kind: "agent" | "knowledge" | "tool"; name: string; description: string }> } : null).then((result) => { if (active && result?.resources) setResources(result.resources); }).catch(() => undefined);
@@ -323,6 +378,63 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
         />
       </ComposerPrimitive.Root>
     </ComposerPrimitive.Unstable_TriggerPopoverRoot>
+  );
+};
+
+const ComposerContextBar: FC<{
+  providers: ThreadProps["providers"];
+  selectedProviderId: string;
+  selectedModel: string;
+  selectedAgent: ThreadProps["selectedAgent"];
+  onModelChange: NonNullable<ThreadProps["onModelChange"]>;
+}> = ({ providers = [], selectedProviderId, selectedModel, selectedAgent, onModelChange }) => {
+  const modelOptions = providers.flatMap((provider) => {
+    const models = provider.models.length > 0 ? provider.models : [provider.model];
+    return models.filter(Boolean).map((model) => ({
+      key: `${provider.id}:${model}`,
+      providerId: provider.id,
+      providerName: provider.name,
+      model,
+    }));
+  });
+  const selectedKey = `${selectedProviderId}:${selectedModel}`;
+
+  return (
+    <div className="flex min-h-8 w-full flex-wrap items-center gap-x-3 gap-y-1 px-2 text-xs">
+      <div className="text-muted-foreground flex items-center gap-1.5" data-slot="composer-agent-context">
+        <BotIcon className="size-3.5" />
+        <span>助手：</span>
+        <span className="text-foreground font-medium">{selectedAgent?.label ?? "未选择"}</span>
+      </div>
+      <label className="text-muted-foreground flex items-center gap-1.5" data-slot="composer-model-context">
+        <span>模型：</span>
+        <select
+          aria-label="选择模型"
+          value={selectedKey}
+          onChange={(event) => {
+            const option = modelOptions.find((item) => item.key === event.target.value);
+            if (option) onModelChange(option.providerId, option.model);
+          }}
+          disabled={modelOptions.length === 0}
+          className="text-foreground h-7 max-w-[min(70vw,22rem)] rounded-md border border-border/60 bg-background px-2 text-xs outline-none focus:border-ring"
+        >
+          {modelOptions.length === 0 && <option value="">暂无可用模型</option>}
+          {providers.map((provider) => {
+            const models = (provider.models.length > 0 ? provider.models : [provider.model]).filter(Boolean);
+            if (models.length === 0) return null;
+            return (
+              <optgroup key={provider.id} label={provider.name}>
+                {models.map((model) => (
+                  <option key={`${provider.id}:${model}`} value={`${provider.id}:${model}`}>
+                    {model}
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
+        </select>
+      </label>
+    </div>
   );
 };
 

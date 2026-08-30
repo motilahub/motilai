@@ -4,14 +4,26 @@ import type { ModelProviderType } from "@/lib/model-provider-types";
 import type { ModelProviderSettings } from "@/lib/model-provider-settings";
 import { NextResponse } from "next/server";
 
+async function requireUser() {
+  return getCurrentUser();
+}
+
 async function requireAdmin() {
   const user = await getCurrentUser();
   return user?.role === "admin";
 }
 
 export async function GET() {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "无权访问" }, { status: 403 });
-  try { return NextResponse.json({ providers: (await listProviders()).map(publicProvider) }); }
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
+  try {
+    const providers = await listProviders();
+    return NextResponse.json({
+      providers: providers
+        .filter((provider) => user.role === "admin" || provider.enabled)
+        .map(publicProvider),
+    });
+  }
   catch (error) { console.error("List providers error", error); return NextResponse.json({ error: "加载模型供应商失败" }, { status: 503 }); }
 }
 

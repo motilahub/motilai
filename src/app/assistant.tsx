@@ -12,7 +12,6 @@ import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-ic
 import { createAttachmentAdapter } from "@/lib/attachment-adapter";
 import type { User } from "@/lib/auth";
 import {
-  BotIcon,
   ChevronDownIcon,
   LogOutIcon,
   MessageSquareIcon,
@@ -30,6 +29,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 type AssistantProps = {
   hasModel: boolean;
   modelName: string;
+  providers: Array<{
+    id: string;
+    name: string;
+    model: string;
+    models: string[];
+  }>;
   user: Omit<User, "passwordHash">;
   systemTitle: string;
   logoUrl: string;
@@ -53,11 +58,18 @@ const suggestions = [
   },
 ] as const;
 
-export const Assistant = ({ hasModel, modelName, user, systemTitle, logoUrl }: AssistantProps) => {
+export const Assistant = ({ hasModel, modelName, providers, user, systemTitle, logoUrl }: AssistantProps) => {
+  const initialProvider = providers[0];
+  const [selectedProviderId, setSelectedProviderId] = useState(initialProvider?.id ?? "");
+  const [selectedModel, setSelectedModel] = useState(initialProvider?.models[0] || initialProvider?.model || modelName);
+  const [selectedAgent, setSelectedAgent] = useState<{ id: string; label: string } | null>(null);
   useEffect(() => { if (systemTitle) document.title = systemTitle; }, [systemTitle]);
   const transport = useMemo(
-    () => new AssistantChatTransport({ api: "/api/chat" }),
-    [],
+    () => new AssistantChatTransport({
+      api: "/api/chat",
+      body: { providerId: selectedProviderId || undefined, model: selectedModel || undefined },
+    }),
+    [selectedModel, selectedProviderId],
   );
   const dictation = useMemo(
     () =>
@@ -81,7 +93,12 @@ export const Assistant = ({ hasModel, modelName, user, systemTitle, logoUrl }: A
       <ChatWorkspace
         runtime={runtime}
         hasModel={hasModel}
-        modelName={modelName}
+        providers={providers}
+        selectedProviderId={selectedProviderId}
+        selectedModel={selectedModel}
+        selectedAgent={selectedAgent}
+        onModelChange={(providerId, model) => { setSelectedProviderId(providerId); setSelectedModel(model); }}
+        onAgentChange={setSelectedAgent}
         user={user}
         systemTitle={systemTitle}
         logoUrl={logoUrl}
@@ -93,11 +110,23 @@ export const Assistant = ({ hasModel, modelName, user, systemTitle, logoUrl }: A
 const ChatWorkspace = ({
   runtime,
   hasModel,
-  modelName,
+  providers,
+  selectedProviderId,
+  selectedModel,
+  selectedAgent,
+  onModelChange,
+  onAgentChange,
   user,
   systemTitle,
   logoUrl,
-}: AssistantProps & { runtime: AssistantRuntime }) => {
+}: Omit<AssistantProps, "modelName"> & {
+  runtime: AssistantRuntime;
+  selectedProviderId: string;
+  selectedModel: string;
+  selectedAgent: { id: string; label: string } | null;
+  onModelChange: (providerId: string, model: string) => void;
+  onAgentChange: (agent: { id: string; label: string } | null) => void;
+}) => {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -253,10 +282,6 @@ const ChatWorkspace = ({
               {sidebarCollapsed ? <PanelLeftOpenIcon /> : <PanelLeftCloseIcon />}
             </TooltipIconButton>
             <TooltipIconButton tooltip="打开侧边栏" variant="ghost" className="md:hidden" onClick={() => setSidebarOpen(true)}><PanelLeftIcon /></TooltipIconButton>
-            <div className="flex min-w-0 items-center gap-2">
-              <BotIcon className="text-muted-foreground size-4 shrink-0" />
-              <span className="truncate text-sm font-medium">{modelName}</span>
-            </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <div className="user-avatar header-user-avatar">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user.username.slice(0, 1).toUpperCase()}</div>
@@ -271,7 +296,14 @@ const ChatWorkspace = ({
         </header>
 
         <div className="min-h-0 flex-1">
-          <Thread />
+          <Thread
+            providers={providers}
+            selectedProviderId={selectedProviderId}
+            selectedModel={selectedModel}
+            selectedAgent={selectedAgent}
+            onModelChange={onModelChange}
+            onAgentChange={onAgentChange}
+          />
         </div>
       </section>
     </main>

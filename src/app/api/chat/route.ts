@@ -11,7 +11,7 @@ import {
   type ModelMessage,
 } from "ai";
 import { getCurrentUser } from "@/lib/auth";
-import { getActiveProvider } from "@/lib/model-providers";
+import { getActiveProvider, getProvider } from "@/lib/model-providers";
 import { listAssistantResources } from "@/lib/assistant-resources";
 
 export const maxDuration = 60;
@@ -29,13 +29,22 @@ export async function POST(req: Request) {
     messages,
     system,
     tools,
+    providerId,
+    model,
   }: {
     messages: UIMessage[];
     system?: string;
     tools?: Record<string, { description?: string; parameters: JSONSchema7 }>;
+    providerId?: string;
+    model?: string;
   } = await req.json();
 
-  const configuredProvider = await getActiveProvider();
+  const configuredProvider = providerId?.trim()
+    ? await getProvider(providerId.trim())
+    : await getActiveProvider();
+  if (providerId?.trim() && (!configuredProvider || !configuredProvider.enabled)) {
+    return new Response("所选模型供应商不可用，请刷新页面后重试。", { status: 400 });
+  }
   const apiKey = configuredProvider?.apiKey || process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return createDemoResponse(messages);
@@ -53,7 +62,7 @@ export async function POST(req: Request) {
   const settings = configuredProvider?.settings;
   const modelMessages = await convertToModelMessages(messages);
   const callOptions = {
-    model: provider.chat(configuredProvider?.model || process.env.OPENAI_MODEL || "gpt-4.1-mini"),
+    model: provider.chat(model?.trim() || configuredProvider?.model || process.env.OPENAI_MODEL || "gpt-4.1-mini"),
     messages: settings?.supportsVision === false ? removeImageParts(modelMessages) : modelMessages,
     ...(settings?.supportsTools === false ? {} : { tools: { ...frontendTools(tools ?? {}) } }),
     system: [system ?? defaultSystem, resourceContext].filter(Boolean).join("\n\n"),
