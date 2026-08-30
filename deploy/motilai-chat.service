@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=simple
 User=ubuntu
 Group=ubuntu
-WorkingDirectory=/home/ubuntu/softwares/motilai/chat-ui
+WorkingDirectory=/home/ubuntu/softwares/motilai
 Environment=MOTILAI_ENV_FILE=/etc/motilai-chat.env
 ExecStart=/usr/bin/docker compose --env-file /etc/motilai-chat.env up --build
 ExecStop=/usr/bin/docker compose --env-file /etc/motilai-chat.env down

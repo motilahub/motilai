@@ -14,6 +14,7 @@
 - 聊天侧边栏桌面端折叠
 - 用户基础资料、头像、密码重置与账号复制
 - OpenAI 兼容模型供应商配置和模型列表自动获取
+- 独立视觉层次的登录与注册页面
 
 ## 本地运行
 
@@ -21,7 +22,7 @@
 
 ```bash
 export PATH=/home/ubuntu/softwares/motilai/.runtime/node/bin:$PATH
-cd /home/ubuntu/softwares/motilai/chat-ui
+cd /home/ubuntu/softwares/motilai
 cp .env.example .env.local
 npm run dev
 ```
@@ -35,7 +36,7 @@ npm run dev
 将 `deploy/motilai-chat.env.example` 复制为 `/etc/motilai-chat.env` 并设置 `POSTGRES_PASSWORD`，然后在项目目录执行：
 
 ```bash
-cd /home/ubuntu/softwares/motilai/chat-ui
+cd /home/ubuntu/softwares/motilai
 sudo -u ubuntu docker compose --env-file /etc/motilai-chat.env up -d
 ```
 
@@ -60,7 +61,11 @@ sudo -u ubuntu docker compose --env-file /etc/motilai-chat.env down
 
 生产环境也可通过 systemd 管理整个 Compose 服务：
 
+服务单元文件为 `deploy/motilai-chat.service`，其中工作目录必须指向本项目根目录 `/home/ubuntu/softwares/motilai`。安装或更新服务单元后执行 `daemon-reload`，再使用以下命令管理服务：
+
 ```bash
+sudo install -m 0644 deploy/motilai-chat.service /etc/systemd/system/motilai-chat.service
+sudo systemctl daemon-reload
 sudo systemctl start motilai-chat
 sudo systemctl restart motilai-chat
 sudo systemctl status motilai-chat
@@ -68,4 +73,4 @@ sudo systemctl status motilai-chat
 
 旧 JSON 用户数据放到 `.data/users.json` 后，首次启动会自动导入 PostgreSQL。
 
-登录管理员账号后，可从侧边栏进入“用户管理”和“模型供应商”。用户管理支持新增、编辑、复制、删除、启用/禁用、头像 URL、手机号、UUID、用户类型、角色和密码重置；模型供应商支持配置 Base URL、API Key、默认模型、启用状态，并通过供应商的 `/models` 接口自动获取模型列表。启用的供应商会优先用于聊天，未配置供应商时继续使用 `OPENAI_*` 环境变量。
+登录管理员账号后，可从侧边栏进入“用户管理”“模型供应商”“助手”“知识库”“工具”和“系统配置”。用户管理支持新增、编辑、复制、删除、启用/禁用、头像 URL、手机号、UUID、用户类型、角色和密码重置；用户与资源列表均提供序号、单双行浅色区分、复选框、全选和批量删除，系统管理员账号不可选中或删除。模型供应商支持配置 Base URL、API Key、默认模型、启用状态，并通过供应商的 `/models` 接口自动获取模型列表。后台 header 使用紧凑高度，面包屑导航居左显示，页面内容采用更宽的可用区域，不显示右上角用户头像和名称。启用的供应商会优先用于聊天，未配置供应商时继续使用 `OPENAI_*` 环境变量。

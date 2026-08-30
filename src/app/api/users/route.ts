@@ -42,10 +42,12 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "无权操作" }, { status: 403 });
   try {
-    const body = (await request.json()) as { id?: string };
-    if (!body.id) return NextResponse.json({ error: "缺少用户 UUID" }, { status: 400 });
-    if (!(await deleteUser(body.id))) return NextResponse.json({ error: "用户不存在" }, { status: 404 });
-    return NextResponse.json({ ok: true });
+    const body = (await request.json()) as { id?: string; ids?: string[] };
+    const ids = Array.isArray(body.ids) ? body.ids.filter(Boolean) : body.id ? [body.id] : [];
+    if (!ids.length) return NextResponse.json({ error: "缺少用户 UUID" }, { status: 400 });
+    let deleted = 0;
+    for (const id of ids) if (await deleteUser(id)) deleted += 1;
+    return NextResponse.json({ ok: true, deleted });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "删除用户失败" }, { status: 400 });
   }

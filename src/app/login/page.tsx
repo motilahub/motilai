@@ -39,8 +39,8 @@ export default function LoginPage() {
         <div className="auth-brand"><span className="brand-mark flex size-10 items-center justify-center rounded-md"><SparklesIcon className="size-5" /></span><span>MOTILAI</span></div>
         <div className="auth-heading"><p className="auth-eyebrow">AI 工作台</p><h1>登录账号</h1><p>继续你的智能对话工作。</p></div>
         <form className="auth-form" onSubmit={submit}>
-          <label>用户名或邮箱<input required value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoComplete="username" /></label>
-          <label>密码<input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" /></label>
+          <label><span>用户名或邮箱</span><input required value={identifier} onChange={(event) => setIdentifier(event.target.value)} autoComplete="username" placeholder="输入用户名或邮箱" /></label>
+          <label><span>密码</span><input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="输入登录密码" /></label>
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="auth-submit" disabled={loading} type="submit"><LogInIcon className="size-4" />{loading ? "登录中..." : "登录"}</button>
         </form>

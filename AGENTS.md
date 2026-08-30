@@ -10,3 +10,13 @@
    - IMP：功能优化
    - FIX：BUG修复
 5. (不自动，需询问）功能开发完成后默认将当前分支PR到origin，PR最好是带上title、desc，可以直接上去PR不需要编辑维护标题和内容信息，直接带出。询问用户是否需要Push与PR。
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

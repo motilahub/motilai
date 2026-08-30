@@ -282,18 +282,39 @@ body {
   display: grid;
   min-height: 100dvh;
   place-items: center;
-  padding: 1.5rem;
-  background: var(--background);
+  overflow-y: auto;
+  padding: 2.5rem 1.5rem;
+  background: #edf3f0;
+  background-image: linear-gradient(rgb(255 255 255 / 0.44) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 0.44) 1px, transparent 1px);
+  background-position: center;
+  background-size: 2.75rem 2.75rem;
 }
 
 .auth-panel {
   width: min(100%, 27rem);
-  padding: 2rem 0;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgb(20 54 45 / 0.12);
+  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 0.97);
+  padding: 2.25rem 2.25rem 2rem;
+  box-shadow: 0 1.5rem 3.5rem rgb(18 49 41 / 0.13), 0 0.25rem 0.75rem rgb(18 49 41 / 0.06);
+}
+
+.auth-panel::before {
+  position: absolute;
+  top: 0;
+  right: 2rem;
+  left: 2rem;
+  height: 0.2rem;
+  background: var(--primary);
+  content: "";
 }
 
 .auth-brand {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
   color: var(--foreground);
   font-size: 0.86rem;
@@ -301,18 +322,20 @@ body {
   letter-spacing: 0.12em;
 }
 
-.auth-heading { margin: 3.5rem 0 2rem; }
+.auth-heading { margin: 2.25rem 0 2rem; text-align: center; }
 .auth-eyebrow { margin: 0 0 0.55rem; color: var(--primary); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
-.auth-heading h1, .admin-header h1 { margin: 0; color: var(--foreground); font-size: 1.8rem; letter-spacing: 0; }
+.auth-heading h1, .admin-header h1 { margin: 0; color: var(--foreground); font-size: 1.8rem; font-weight: 750; letter-spacing: 0; }
 .auth-heading p:not(.auth-eyebrow) { margin: 0.55rem 0 0; color: var(--muted-foreground); font-size: 0.9rem; }
-.auth-form { display: grid; gap: 1rem; }
-.auth-form label { display: grid; gap: 0.4rem; color: var(--foreground); font-size: 0.78rem; font-weight: 600; }
-.auth-form input { width: 100%; height: 2.75rem; border: 1px solid var(--border); border-radius: 0.45rem; background: var(--card); padding: 0 0.8rem; color: var(--foreground); outline: none; }
-.auth-form input:focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 18%, transparent); }
-.auth-submit { display: flex; height: 2.75rem; align-items: center; justify-content: center; gap: 0.45rem; border: 0; border-radius: 0.45rem; background: var(--primary); color: var(--primary-foreground); font-size: 0.84rem; font-weight: 700; }
-.auth-submit:hover { filter: brightness(0.94); }
+.auth-form { display: grid; gap: 1.05rem; }
+.auth-form label { display: grid; gap: 0.45rem; color: var(--foreground); font-size: 0.78rem; font-weight: 650; }
+.auth-form input { width: 100%; height: 2.9rem; border: 1px solid oklch(0.84 0.015 165); border-radius: 0.5rem; background: #f8faf9; padding: 0 0.85rem; color: var(--foreground); outline: none; transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease; }
+.auth-form input::placeholder { color: oklch(0.6 0.02 165); }
+.auth-form input:hover { border-color: oklch(0.69 0.06 165); background: white; }
+.auth-form input:focus { border-color: var(--ring); background: white; box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 16%, transparent); }
+.auth-submit { display: flex; height: 2.9rem; align-items: center; justify-content: center; gap: 0.45rem; margin-top: 0.2rem; border: 0; border-radius: 0.5rem; background: var(--primary); color: var(--primary-foreground); font-size: 0.84rem; font-weight: 700; box-shadow: 0 0.4rem 0.9rem color-mix(in oklab, var(--primary) 22%, transparent); transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
+.auth-submit:hover { background: oklch(0.43 0.13 163); box-shadow: 0 0.55rem 1.1rem color-mix(in oklab, var(--primary) 28%, transparent); transform: translateY(-1px); }
 .auth-submit:disabled { cursor: wait; opacity: 0.65; }
-.auth-switch { margin-top: 1.5rem; color: var(--muted-foreground); font-size: 0.8rem; text-align: center; }
+.auth-switch { margin: 1.5rem 0 0; color: var(--muted-foreground); font-size: 0.8rem; text-align: center; }
 .auth-switch a { color: var(--primary); font-weight: 600; }
 .form-error { margin: 0; color: var(--destructive); font-size: 0.78rem; }
 
@@ -344,16 +367,16 @@ body {
 .admin-main { min-width: 0; flex: 1; overflow: auto; }
 .admin-page { min-height: 100dvh; background: var(--background); }
 .admin-shell { min-height: 100dvh; background: var(--background); }
-.admin-header { display: flex; min-height: 5rem; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--border); padding: 1rem 1.25rem; }
+.admin-header { display: flex; min-height: 3.5rem; align-items: center; border-bottom: 1px solid var(--border); padding: 0 1.5rem; }
 .admin-header-title { min-width: 0; }
-.admin-header .auth-eyebrow { margin-bottom: 0.2rem; }
+.admin-header .breadcrumb { margin: 0; }
 .admin-header-user { display: flex; min-width: 0; flex: 0 0 auto; align-items: center; gap: 0.6rem; color: var(--foreground); }
 .admin-header-avatar { width: 2.25rem; height: 2.25rem; overflow: hidden; }
 .admin-header-username { max-width: 14rem; overflow: hidden; font-size: 0.78rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .admin-current { display: flex; align-items: center; gap: 0.4rem; color: var(--muted-foreground); font-size: 0.78rem; }
 .icon-link { display: flex; width: 2rem; height: 2rem; align-items: center; justify-content: center; border-radius: 0.4rem; color: var(--muted-foreground); }
 .icon-link:hover { background: var(--muted); color: var(--foreground); }
-.admin-content { width: min(100% - 2.5rem, 72rem); margin: 2rem auto; }
+.admin-content { width: calc(100% - 3rem); max-width: 120rem; margin: 1.5rem auto; }
 .breadcrumb { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 1.25rem; color: var(--muted-foreground); font-size: 0.72rem; }
 .breadcrumb a:hover { color: var(--foreground); }
 .breadcrumb strong { color: var(--foreground); font-weight: 600; }
@@ -432,6 +455,10 @@ body {
 .admin-content > .ant-table-wrapper { margin-top: 1.5rem; }
 .admin-content .ant-table { font-size: 0.8rem; }
 .admin-content .ant-table-thead > tr > th { font-size: 0.72rem; }
+.admin-content .ant-table-tbody > tr:nth-child(even) > td { background: color-mix(in oklab, var(--muted) 45%, transparent); }
+.admin-content .ant-table-tbody > tr:hover > td { background: color-mix(in oklab, var(--accent) 35%, transparent) !important; }
+.admin-batch-actions { display: flex; align-items: center; gap: 0.7rem; }
+.admin-selection-count { color: var(--muted-foreground); font-size: 0.76rem; }
 .provider-model-select { width: 100%; max-width: 13rem; height: 2rem; border: 1px solid var(--border); border-radius: 0.3rem; background: var(--background); padding: 0 0.4rem; color: var(--foreground); font-size: 0.72rem; }
 .clickable-row { cursor: pointer; }
 .clickable-row:hover { background: color-mix(in oklab, var(--accent) 35%, transparent); }
@@ -469,6 +496,7 @@ body {
   .admin-sidebar:not(.collapsed) { width: 13rem; }
   .admin-sidebar:not(.collapsed) .admin-nav-link { padding: 0 0.65rem; }
   .admin-header { padding-inline: 1rem; }
+  .admin-content { width: calc(100% - 2rem); margin-block: 1rem; }
   .drawer-panel { width: min(100%, 27rem); }
   .drawer-panel .admin-form-grid { grid-template-columns: 1fr; }
 }

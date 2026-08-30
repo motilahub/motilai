@@ -38,10 +38,10 @@ export default function RegisterPage() {
       <div className="auth-brand"><span className="brand-mark flex size-10 items-center justify-center rounded-md"><SparklesIcon className="size-5" /></span><span>MOTILAI</span></div>
       <div className="auth-heading"><p className="auth-eyebrow">开始使用</p><h1>创建账号</h1><p>注册后即可使用聊天工作台。</p></div>
       <form className="auth-form" onSubmit={submit}>
-        <label>用户名<input required minLength={3} maxLength={24} value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} autoComplete="username" /></label>
-        <label>邮箱<input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} autoComplete="email" /></label>
-        <label>密码<input required minLength={8} type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} autoComplete="new-password" /></label>
-        <label>确认密码<input required minLength={8} type="password" value={form.confirm} onChange={(event) => setForm({ ...form, confirm: event.target.value })} autoComplete="new-password" /></label>
+        <label><span>用户名</span><input required minLength={3} maxLength={24} value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} autoComplete="username" placeholder="设置用户名" /></label>
+        <label><span>邮箱</span><input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} autoComplete="email" placeholder="输入常用邮箱" /></label>
+        <label><span>密码</span><input required minLength={8} type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} autoComplete="new-password" placeholder="至少 8 位字符" /></label>
+        <label><span>确认密码</span><input required minLength={8} type="password" value={form.confirm} onChange={(event) => setForm({ ...form, confirm: event.target.value })} autoComplete="new-password" placeholder="再次输入密码" /></label>
         {error && <p className="form-error" role="alert">{error}</p>}
         <button className="auth-submit" disabled={loading} type="submit"><ArrowRightIcon className="size-4" />{loading ? "创建中..." : "创建账号"}</button>
       </form>
