@@ -5,8 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-export function AdminHeader({ menuTitle, currentUsername, avatarUrl }: { menuTitle: string; currentUsername: string; avatarUrl?: string }) {
-  return <header className="admin-header"><div className="admin-header-title"><p className="auth-eyebrow">MOTILAI 管理后台</p><h1>{menuTitle}</h1></div><div className="admin-header-user"><span className="user-avatar admin-header-avatar">{avatarUrl ? <img src={avatarUrl} alt="" /> : currentUsername.slice(0, 1).toUpperCase()}</span><span className="admin-header-username">{currentUsername}</span></div></header>;
+export function AdminHeader({ menuTitle }: { menuTitle: string; currentUsername?: string; avatarUrl?: string }) {
+  return <header className="admin-header"><div className="admin-header-title"><p className="auth-eyebrow">MOTILAI 管理后台</p><h1>{menuTitle}</h1></div></header>;
 }
 
 export function AdminShell({ currentUsername, avatarUrl, logoUrl, title, children }: { currentUsername: string; avatarUrl?: string; logoUrl?: string; title?: string; children: ReactNode }) {

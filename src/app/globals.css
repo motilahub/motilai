@@ -344,7 +344,7 @@ body {
 .admin-main { min-width: 0; flex: 1; overflow: auto; }
 .admin-page { min-height: 100dvh; background: var(--background); }
 .admin-shell { min-height: 100dvh; background: var(--background); }
-.admin-header { display: flex; min-height: 5rem; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--border); padding: 1rem max(1.25rem, calc((100vw - 72rem) / 2)); }
+.admin-header { display: flex; min-height: 5rem; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--border); padding: 1rem 1.25rem; }
 .admin-header-title { min-width: 0; }
 .admin-header .auth-eyebrow { margin-bottom: 0.2rem; }
 .admin-header-user { display: flex; min-width: 0; flex: 0 0 auto; align-items: center; gap: 0.6rem; color: var(--foreground); }
