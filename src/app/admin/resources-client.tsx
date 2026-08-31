@@ -14,7 +14,7 @@ const labels: Record<ResourceKind, { title: string; description: string; content
   tool: { title: "工具", description: "维护可在聊天中引用的工具定义、参数和执行端点。", contentLabel: "参数 JSON", contentPlaceholder: '{\n  "query": { "type": "string", "description": "搜索关键词" }\n}' },
 };
 
-export function ResourcesClient({ kind, currentUsername, avatarUrl }: { kind: ResourceKind; currentUsername: string; avatarUrl?: string }) {
+export function ResourcesClient({ kind, currentUsername = "", avatarUrl }: { kind: ResourceKind; currentUsername?: string; avatarUrl?: string }) {
   const { message } = App.useApp();
   const meta = labels[kind];
   const [resources, setResources] = useState<AssistantResource[]>([]); const [form, setForm] = useState<ResourceForm>({ name: "", description: "", enabled: true, content: "", endpoint: "" }); const [editingId, setEditingId] = useState<string | null>(null); const [open, setOpen] = useState(false); const [error, setError] = useState(""); const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);

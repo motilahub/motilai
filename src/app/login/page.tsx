@@ -25,7 +25,6 @@ export default function LoginPage() {
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) throw new Error(result?.error ?? "登录服务暂时不可用，请稍后重试");
       router.replace("/");
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败");
     } finally {
