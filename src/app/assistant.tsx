@@ -35,7 +35,7 @@ type AssistantProps = {
     model: string;
     models: string[];
   }>;
-  user: Omit<User, "passwordHash">;
+  user: Omit<User, "passwordHash" | "avatarUrl64">;
   systemTitle: string;
   logoUrl: string;
 };

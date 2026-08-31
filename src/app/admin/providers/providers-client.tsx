@@ -14,7 +14,7 @@ function createEmptyForm(): FormValue {
   return { name: "OpenAI", providerType: "openai", baseUrl: "https://api.openai.com/v1", apiKey: "", model: "", enabled: false, settings: { ...DEFAULT_MODEL_PROVIDER_SETTINGS }, stopSequencesText: "" };
 }
 
-export function ProvidersClient({ currentUsername, avatarUrl }: { currentUsername: string; avatarUrl?: string }) {
+export function ProvidersClient({ currentUsername = "", avatarUrl }: { currentUsername?: string; avatarUrl?: string } = {}) {
   const { message } = App.useApp();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [form, setForm] = useState<FormValue>(createEmptyForm);

@@ -6,9 +6,15 @@ async function requireAdmin() {
   return user?.role === "admin" ? user : null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await requireAdmin())) return NextResponse.json({ error: "无权访问" }, { status: 403 });
-  try { return NextResponse.json({ users: (await listUsers()).map(publicUser) }); }
+  try {
+    const url = new URL(request.url);
+    const page = Math.max(1, Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+    const pageSize = Math.min(50, Math.max(1, Number.parseInt(url.searchParams.get("pageSize") ?? "10", 10) || 10));
+    const result = await listUsers(page, pageSize);
+    return NextResponse.json({ users: result.users.map(publicUser), total: result.total, page, pageSize }, { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=30" } });
+  }
   catch (error) { console.error("List users error", error); return NextResponse.json({ error: "加载用户失败" }, { status: 503 }); }
 }
 

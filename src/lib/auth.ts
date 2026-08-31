@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { Pool, type PoolClient } from "pg";
+import { createImageThumbnails, isDataImage } from "@/lib/image-thumbnails";
 
 export type UserRole = "admin" | "user";
 export type UserType = "user" | "staff" | "customer" | "service";
@@ -12,6 +13,7 @@ export type User = {
   displayName: string;
   phone: string;
   avatarUrl: string;
+  avatarUrl64: string;
   userType: UserType;
   passwordHash: string;
   role: UserRole;
@@ -35,6 +37,7 @@ function rowToUser(row: Record<string, unknown>): User {
     displayName: String(row.display_name ?? ""),
     phone: String(row.phone ?? ""),
     avatarUrl: String(row.avatar_url ?? ""),
+    avatarUrl64: String(row.avatar_url_64 ?? ""),
     userType: (row.user_type ?? "user") as UserType,
     passwordHash: String(row.password_hash),
     role: row.role as UserRole,
@@ -60,10 +63,11 @@ async function initializeDatabase() {
   try {
     await client.query("BEGIN");
     await client.query("SELECT pg_advisory_xact_lock(hashtext('motilai:database-init'))");
-    await client.query(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', avatar_url TEXT NOT NULL DEFAULT '', user_type TEXT NOT NULL DEFAULT 'user' CHECK (user_type IN ('user', 'staff', 'customer', 'service')), password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')), disabled BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await client.query(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', avatar_url TEXT NOT NULL DEFAULT '', avatar_url_64 TEXT NOT NULL DEFAULT '', user_type TEXT NOT NULL DEFAULT 'user' CHECK (user_type IN ('user', 'staff', 'customer', 'service')), password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')), disabled BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT NOT NULL DEFAULT ''");
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT NOT NULL DEFAULT ''");
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT NOT NULL DEFAULT ''");
+    await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url_64 TEXT NOT NULL DEFAULT ''");
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_type TEXT NOT NULL DEFAULT 'user'");
     await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
     await client.query("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_user_type_check");
@@ -73,10 +77,19 @@ async function initializeDatabase() {
     await client.query("ALTER TABLE model_providers ADD COLUMN IF NOT EXISTS provider_type TEXT NOT NULL DEFAULT 'custom'");
     await client.query("ALTER TABLE model_providers ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb");
     await client.query(`CREATE TABLE IF NOT EXISTS system_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    for (const row of (await client.query<{ key: string; value: string }>("SELECT s.key, s.value FROM system_settings s WHERE s.key IN ('logoUrl', 'faviconUrl') AND s.value LIKE 'data:image/%' AND NOT EXISTS (SELECT 1 FROM system_settings s64 WHERE s64.key = s.key || '64')" )).rows) {
+      const thumbnails = await createImageThumbnails(row.value);
+      await client.query("UPDATE system_settings SET value = $2, updated_at = NOW() WHERE key = $1", [row.key, thumbnails.small]);
+      await client.query("INSERT INTO system_settings (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()", [`${row.key}64`, thumbnails.medium]);
+    }
     await client.query(`CREATE TABLE IF NOT EXISTS assistant_resources (id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('agent', 'knowledge', 'tool')), name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', enabled BOOLEAN NOT NULL DEFAULT TRUE, config JSONB NOT NULL DEFAULT '{}'::jsonb, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
     await client.query(`INSERT INTO users (id, username, email, display_name, user_type, password_hash, role, disabled) VALUES ('system-admin', $1, $2, '系统管理员', 'staff', $3, 'admin', FALSE) ON CONFLICT (username) DO UPDATE SET role = 'admin', disabled = FALSE, user_type = 'staff'`, [SYSTEM_ADMIN_USERNAME, SYSTEM_ADMIN_EMAIL, hashPassword("admin")]);
     await client.query(`INSERT INTO assistant_resources (id, kind, name, description, config) VALUES ('general', 'agent', '通用助手', '日常问答、分析与写作', '{"prompt":"你是一个准确、直接且结构清晰的通用助手。"}'::jsonb), ('analyst', 'agent', '数据分析师', '数据解读、指标与结论', '{"prompt":"你是一名数据分析师，请基于数据给出清晰的指标解读和结论。"}'::jsonb), ('workspace', 'knowledge', '项目知识库', '检索当前项目资料', '{"content":""}'::jsonb), ('web-search', 'tool', '联网搜索', '获取最新公开信息', '{"parameters":{},"endpoint":""}'::jsonb) ON CONFLICT (id) DO NOTHING`);
     await importLegacyUsers(client);
+    for (const row of (await client.query<{ id: string; avatar_url: string }>("SELECT id, avatar_url FROM users WHERE avatar_url LIKE 'data:image/%' AND avatar_url_64 = ''")).rows) {
+      const thumbnails = await createImageThumbnails(row.avatar_url);
+      await client.query("UPDATE users SET avatar_url = $2, avatar_url_64 = $3 WHERE id = $1", [row.id, thumbnails.small, thumbnails.medium]);
+    }
     await client.query("COMMIT");
   } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
 }
@@ -93,8 +106,10 @@ async function importLegacyUsers(client: PoolClient) {
 }
 
 export function publicUser(user: User) {
-  const safeUser = { ...user } as Omit<User, "passwordHash"> & { passwordHash?: string };
+  const safeUser = { ...user } as Omit<User, "passwordHash" | "avatarUrl64"> & { passwordHash?: string; avatarUrl64?: string };
   delete safeUser.passwordHash;
+  delete safeUser.avatarUrl64;
+  if (safeUser.avatarUrl && isDataImage(user.avatarUrl)) safeUser.avatarUrl = `/api/media/user/${encodeURIComponent(user.id)}?v=${encodeURIComponent(user.updatedAt)}`;
   return safeUser;
 }
 function normalizeUsername(username: string) { return username.trim().toLowerCase(); }
@@ -110,7 +125,9 @@ export async function createUser(input: { username: string; email: string; passw
   if (input.password.length < 8) throw new Error("密码至少需要 8 位");
   const userType = input.userType ?? "user";
   if (!["user", "staff", "customer", "service"].includes(userType)) throw new Error("无效的用户类型");
-  try { const result = await pool.query(`INSERT INTO users (id, username, email, display_name, phone, avatar_url, user_type, password_hash, role, disabled) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`, [randomUUID(), username, email, input.displayName?.trim() ?? "", input.phone?.trim() ?? "", input.avatarUrl?.trim() ?? "", userType, hashPassword(input.password), input.role ?? "user", input.disabled ?? false]); return rowToUser(result.rows[0]); }
+  const avatarValue = input.avatarUrl?.trim() ?? "";
+  const thumbnails = avatarValue.startsWith("/api/media/") ? { small: "", medium: "" } : avatarValue && isDataImage(avatarValue) ? await createImageThumbnails(avatarValue) : { small: avatarValue, medium: "" };
+  try { const result = await pool.query(`INSERT INTO users (id, username, email, display_name, phone, avatar_url, avatar_url_64, user_type, password_hash, role, disabled) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`, [randomUUID(), username, email, input.displayName?.trim() ?? "", input.phone?.trim() ?? "", thumbnails.small, thumbnails.medium, userType, hashPassword(input.password), input.role ?? "user", input.disabled ?? false]); return rowToUser(result.rows[0]); }
   catch (error) { if ((error as { code?: string }).code === "23505") throw new Error("用户名或邮箱已存在"); throw error; }
 }
 
@@ -121,7 +138,15 @@ export async function getUserById(id: string) { await initDatabase(); const resu
 export async function getCurrentUser() { await initDatabase(); const token = (await cookies()).get(SESSION_COOKIE)?.value; if (!token) return null; const result = await pool.query(`SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = $1 AND s.expires_at > NOW() AND u.disabled = FALSE`, [token]); if (!result.rows[0]) { await deleteSession(token); return null; } return rowToUser(result.rows[0]); }
 export function sessionCookie(token: string, maxAge = SESSION_MAX_AGE) { return { name: SESSION_COOKIE, value: token, httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/", maxAge }; }
 export function clearSessionCookie() { return { ...sessionCookie("", 0), expires: new Date(0) }; }
-export async function listUsers() { await initDatabase(); const result = await pool.query("SELECT * FROM users ORDER BY created_at DESC"); return result.rows.map(rowToUser); }
+export async function listUsers(page = 1, pageSize = 10) {
+  await initDatabase();
+  const offset = (page - 1) * pageSize;
+  const [result, count] = await Promise.all([
+    pool.query("SELECT id, username, email, display_name, phone, avatar_url, user_type, password_hash, role, disabled, created_at, updated_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2", [pageSize, offset]),
+    pool.query<{ count: string }>("SELECT COUNT(*)::text AS count FROM users"),
+  ]);
+  return { users: result.rows.map(rowToUser), total: Number(count.rows[0]?.count ?? 0) };
+}
 export async function updateUser(id: string, update: { username?: string; email?: string; displayName?: string; phone?: string; avatarUrl?: string; userType?: UserType; role?: UserRole; disabled?: boolean }) {
   await initDatabase();
   const current = await getUserById(id);
@@ -133,7 +158,9 @@ export async function updateUser(id: string, update: { username?: string; email?
   const userType = update.userType ?? current.userType;
   if (!["user", "staff", "customer", "service"].includes(userType)) throw new Error("无效的用户类型");
   const protectedAccount = current.id === "system-admin" || current.username === SYSTEM_ADMIN_USERNAME;
-  const result = await pool.query("UPDATE users SET username = $2, email = $3, display_name = $4, phone = $5, avatar_url = $6, user_type = $7, role = $8, disabled = $9, updated_at = NOW() WHERE id = $1 RETURNING *", [id, username, email, update.displayName?.trim() ?? current.displayName, update.phone?.trim() ?? current.phone, update.avatarUrl?.trim() ?? current.avatarUrl, protectedAccount ? "staff" : userType, protectedAccount ? "admin" : update.role ?? current.role, protectedAccount ? false : update.disabled ?? current.disabled]);
+  const avatarValue = update.avatarUrl?.trim() ?? "";
+  const avatar = update.avatarUrl === undefined || avatarValue.startsWith("/api/media/user/") ? { small: current.avatarUrl, medium: current.avatarUrl64 } : avatarValue && isDataImage(avatarValue) ? await createImageThumbnails(avatarValue) : { small: avatarValue, medium: "" };
+  const result = await pool.query("UPDATE users SET username = $2, email = $3, display_name = $4, phone = $5, avatar_url = $6, avatar_url_64 = $7, user_type = $8, role = $9, disabled = $10, updated_at = NOW() WHERE id = $1 RETURNING *", [id, username, email, update.displayName?.trim() ?? current.displayName, update.phone?.trim() ?? current.phone, avatar.small, avatar.medium, protectedAccount ? "staff" : userType, protectedAccount ? "admin" : update.role ?? current.role, protectedAccount ? false : update.disabled ?? current.disabled]);
   return result.rows[0] ? rowToUser(result.rows[0]) : null;
 }
 

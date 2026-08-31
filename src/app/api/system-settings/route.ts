@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "请先登录" }, { status: 401 });
-  try { return NextResponse.json({ settings: await getSystemSettings() }); }
+  try { return NextResponse.json({ settings: await getSystemSettings() }, { headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=60" } }); }
   catch (error) { console.error("Get system settings error", error); return NextResponse.json({ error: "读取系统配置失败" }, { status: 503 }); }
 }
 

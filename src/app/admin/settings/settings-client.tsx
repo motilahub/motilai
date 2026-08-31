@@ -20,13 +20,7 @@ const defaults: Settings = {
   description: "MOTILAI 多模态 AI 对话工作台",
 };
 
-export function SystemSettingsClient({
-  currentUsername,
-  avatarUrl,
-}: {
-  currentUsername: string;
-  avatarUrl?: string;
-}) {
+export function SystemSettingsClient({ currentUsername = "", avatarUrl }: { currentUsername?: string; avatarUrl?: string } = {}) {
   const { message } = App.useApp();
   const [settings, setSettings] = useState<Settings>(defaults);
   const [error, setError] = useState("");
