@@ -1,6 +1,6 @@
 "use client";
 
-import { App, Button, Upload } from "antd";
+import { App, Upload } from "antd";
 import { ImagePlusIcon, SaveIcon, Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AdminHeader } from "../admin-shell";
@@ -143,41 +143,44 @@ export function SystemSettingsClient({ currentUsername = "", avatarUrl }: { curr
               />
             </label>
           </div>
-          <div className="settings-image-grid">
+          <div className="settings-grid settings-image-grid">
             {imageFields.map(({ key, label, description }) => (
               <div className="settings-image-field" key={key}>
-                <Upload
-                  accept="image/*"
-                  showUploadList={false}
-                  beforeUpload={(file) => handleImageFile(key, label, file)}
-                >
-                  <div
-                    className="settings-image-preview"
-                    role="button"
-                    aria-label={`选择${label}`}
+                <span className="settings-field-label">{label}</span>
+                <div className="settings-image-control">
+                  <Upload
+                    accept="image/*"
+                    showUploadList={false}
+                    beforeUpload={(file) => handleImageFile(key, label, file)}
                   >
-                    {settings[key] ? (
-                      <img src={settings[key]} alt={`${label}预览`} />
-                    ) : (
-                      <ImagePlusIcon className="size-6" />
-                    )}
-                  </div>
-                </Upload>
-                <div className="settings-image-copy">
-                  <strong>{label}</strong>
-                  <p>{description}，点击图片选择文件</p>
+                    <button
+                      type="button"
+                      className="settings-image-select"
+                      aria-label={`选择${label}`}
+                    >
+                      <span className="settings-image-preview">
+                        {settings[key] ? (
+                          <img src={settings[key]} alt={`${label}预览`} />
+                        ) : (
+                          <ImagePlusIcon className="size-4" />
+                        )}
+                      </span>
+                      <span>{settings[key] ? "更换图片" : "选择图片"}</span>
+                    </button>
+                  </Upload>
                   {settings[key] && (
-                    <Button
-                      type="link"
-                      danger
-                      size="small"
-                      icon={<Trash2Icon className="size-3.5" />}
+                    <button
+                      type="button"
+                      className="settings-image-clear"
+                      aria-label={`清空${label}`}
+                      title={`清空${label}`}
                       onClick={() => updateSettings({ [key]: "" })}
                     >
-                      清空图片
-                    </Button>
+                      <Trash2Icon className="size-3.5" />
+                    </button>
                   )}
                 </div>
+                <small>{description}</small>
               </div>
             ))}
           </div>

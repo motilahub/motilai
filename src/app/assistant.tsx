@@ -284,8 +284,6 @@ const ChatWorkspace = ({
             <TooltipIconButton tooltip="打开侧边栏" variant="ghost" className="md:hidden" onClick={() => setSidebarOpen(true)}><PanelLeftIcon /></TooltipIconButton>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <div className="user-avatar header-user-avatar">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user.username.slice(0, 1).toUpperCase()}</div>
-            <span className="header-username max-w-32 truncate text-xs font-medium">{user.username}</span>
             <div className="status-pill flex items-center gap-2 rounded-full px-2.5 py-1 text-xs">
             <span
               className={`size-1.5 rounded-full ${hasModel ? "bg-emerald-500" : "bg-amber-500"}`}
