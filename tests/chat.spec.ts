@@ -23,6 +23,11 @@ test("desktop chat supports mentions, attachments and streaming", async ({
   await page.getByText("助手", { exact: true }).click();
   await expect(page.getByText("通用助手", { exact: true })).toBeVisible();
   await page.getByText("通用助手", { exact: true }).click();
+  await composer.press("End");
+  await composer.press("Backspace");
+  await composer.press("Backspace");
+  await expect(page.locator('[data-slot="directive-composer-chip"]')).toHaveCount(0);
+  await expect(composer).not.toHaveValue(/agent\[通用助手\]|通用助手/);
 
   const fileChooserPromise = page.waitForEvent("filechooser");
   await page.getByLabel("添加图片或文件").click();

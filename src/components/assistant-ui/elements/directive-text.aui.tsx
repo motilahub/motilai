@@ -3,10 +3,11 @@
 import TextareaAutosize, {
   type TextareaAutosizeProps,
 } from "react-textarea-autosize";
-import { forwardRef, memo } from "react";
+import { forwardRef, memo, useCallback, useRef } from "react";
 import type { TextMessagePartComponent } from "@assistant-ui/react";
 import type { Unstable_DirectiveFormatter } from "@assistant-ui/react";
 import { unstable_defaultDirectiveFormatter } from "@assistant-ui/react";
+import { unstable_useComposerInput } from "@assistant-ui/react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -33,8 +34,55 @@ export const DirectiveComposerInput = forwardRef<
   TextareaAutosizeProps
 >(({ className, value, ...props }, ref) => {
   const text = typeof value === "string" ? value : "";
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { setText } = unstable_useComposerInput();
   const segments = compatibleDirectiveFormatter.parse(text);
   const hasMention = segments.some((segment) => segment.kind === "mention");
+
+  const setRefs = useCallback(
+    (node: HTMLTextAreaElement | null) => {
+      inputRef.current = node;
+      if (typeof ref === "function") ref(node);
+      else if (ref) ref.current = node;
+    },
+    [ref],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      props.onKeyDown?.(event);
+      if (event.defaultPrevented || event.nativeEvent.isComposing || event.key === "Enter") return;
+
+      const target = event.currentTarget;
+      const start = target.selectionStart;
+      const end = target.selectionEnd;
+      if (start !== end || (event.key !== "Backspace" && event.key !== "Delete")) return;
+
+      const directiveRanges = [...text.matchAll(
+        /(^|[^\w:-])([@:]?(?:agent|knowledge|tool)\[[^\]\n]{1,1024}\](?:\{name=[^}\n]{1,1024}\})?)/gu,
+      )].map((match) => {
+        const prefixLength = match[1]?.length ?? 0;
+        const directive = match[2] ?? "";
+        const rangeStart = (match.index ?? 0) + prefixLength;
+        return { start: rangeStart, end: rangeStart + directive.length };
+      });
+
+      const range = directiveRanges.find((candidate) =>
+        event.key === "Backspace" ? candidate.end === start : candidate.start === start,
+      );
+      if (!range) return;
+
+      event.preventDefault();
+      const nextText = text.slice(0, range.start) + text.slice(range.end);
+      setText(nextText);
+      requestAnimationFrame(() => {
+        const node = inputRef.current;
+        if (!node) return;
+        node.setSelectionRange(range.start, range.start);
+      });
+    },
+    [props, setText, text],
+  );
 
   return (
     <div className="relative w-full">
@@ -72,8 +120,9 @@ export const DirectiveComposerInput = forwardRef<
       )}
       <TextareaAutosize
         {...props}
-        ref={ref}
+        ref={setRefs}
         value={text}
+        onKeyDown={handleKeyDown}
         className={cn(
           className,
           hasMention &&
